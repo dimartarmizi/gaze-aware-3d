@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Gaze-Aware 3D Display</title>
+	<style>
+		body {
+			margin: 0;
+			overflow: hidden;
+			background: #000;
+			font-family: 'Inter', sans-serif;
+		}
+
+		#canvas-container {
+			width: 100vw;
+			height: 100vh;
+		}
+
+		#ui-overlay {
+			position: absolute;
+			top: 20px;
+			left: 20px;
+			color: white;
+			pointer-events: none;
+			text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+		}
+
+		#webcam-container {
+			position: absolute;
+			bottom: 20px;
+			right: 20px;
+			width: 240px;
+			height: 180px;
+			border-radius: 12px;
+			border: 2px solid rgba(255, 255, 255, 0.2);
+			overflow: hidden;
+			background: #111;
+		}
+
+		#webcam-view,
+		#feedback-canvas {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			transform: scaleX(-1);
+		}
+	</style>
+</head>
+
+<body>
+	<div id="canvas-container"></div>
+	<div id="ui-overlay">
+		<h1>Gaze-Aware 3D</h1>
+		<p id="status">Initializing camera...</p>
+	</div>
+	<div id="webcam-container">
+		<video id="webcam-view" autoplay playsinline></video>
+		<canvas id="feedback-canvas"></canvas>
+	</div>
+	<script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
