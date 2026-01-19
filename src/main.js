@@ -90,12 +90,12 @@ async function main() {
 		};
 
 		btnResetApp.onclick = () => {
-			settingBg.value = 'dark';
+			settingBg.value = 'grid';
 			settingPov.value = 15;
 			settingShowTitle.checked = true;
 			settingShowWebcam.checked = true;
 			
-			updateBackground('dark');
+			updateBackground('grid');
 			updatePOV(15);
 			document.getElementById('ui-overlay').style.opacity = '1';
 			document.getElementById('webcam-container').style.opacity = '1';
