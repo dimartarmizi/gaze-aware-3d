@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export function initScene() {
 	const scene = new THREE.Scene();
@@ -14,10 +15,14 @@ export function initScene() {
 	const aspect = window.innerWidth / window.innerHeight;
 	const width = 10;
 	const height = width / aspect;
-	const depth = 15;
+	let depth = 15;
 
-	const gridRoom = createGridRoom(width, height, depth);
+	let gridRoom = createGridRoom(width, height, depth);
 	scene.add(gridRoom);
+
+	// Container for the model to allow Sketchfab-like rotation/panning
+	const modelContainer = new THREE.Group();
+	scene.add(modelContainer);
 
 	const sphereGeometry = new THREE.SphereGeometry(1.5, 32, 32);
 	const sphereMaterial = new THREE.MeshStandardMaterial({
@@ -26,23 +31,93 @@ export function initScene() {
 		roughness: 0.2,
 		emissive: 0x003311
 	});
-	const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-	sphere.position.set(0, 0, -depth / 2);
-	scene.add(sphere);
+	let currentModel = new THREE.Mesh(sphereGeometry, sphereMaterial);
+	modelContainer.add(currentModel);
+	modelContainer.position.set(0, 0, -depth / 2);
 
-	const pointLight = new THREE.PointLight(0x00ffff, 1, 20);
-	pointLight.position.set(0, 0, -5);
+	const pointLight = new THREE.PointLight(0x00ffff, 1, 50);
+	pointLight.position.set(0, 5, -5);
 	scene.add(pointLight);
 
-	const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+	const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
 	scene.add(ambientLight);
 
 	window.addEventListener('resize', () => {
 		const aspect = window.innerWidth / window.innerHeight;
+		camera.aspect = aspect;
+		camera.updateProjectionMatrix();
 		renderer.setSize(window.innerWidth, window.innerHeight);
 	});
 
-	return { scene, camera, renderer };
+	const loader = new GLTFLoader();
+
+	return {
+		scene,
+		camera,
+		renderer,
+		updateBackground: (theme) => {
+			if (theme === 'dark') {
+				scene.background = new THREE.Color(0x050505);
+				gridRoom.visible = false;
+			} else if (theme === 'light') {
+				scene.background = new THREE.Color(0xeeeeee);
+				gridRoom.visible = false;
+			} else if (theme === 'grid') {
+				scene.background = new THREE.Color(0x050505);
+				gridRoom.visible = true;
+			}
+		},
+		updatePOV: (newDepth) => {
+			depth = newDepth;
+			scene.remove(gridRoom);
+			gridRoom = createGridRoom(width, height, depth);
+			scene.add(gridRoom);
+		},
+		updateModelTransform: (transform) => {
+			if (transform.position) {
+				modelContainer.position.set(transform.position.x, transform.position.y, transform.position.z);
+			}
+			if (transform.rotation) {
+				modelContainer.rotation.set(
+					THREE.MathUtils.degToRad(transform.rotation.x),
+					THREE.MathUtils.degToRad(transform.rotation.y),
+					THREE.MathUtils.degToRad(transform.rotation.z)
+				);
+			}
+			if (transform.scale) {
+				modelContainer.scale.setScalar(transform.scale);
+			}
+		},
+		getModelTransform: () => {
+			return {
+				position: { x: modelContainer.position.x, y: modelContainer.position.y, z: modelContainer.position.z },
+				rotation: { 
+					x: THREE.MathUtils.radToDeg(modelContainer.rotation.x), 
+					y: THREE.MathUtils.radToDeg(modelContainer.rotation.y) ,
+					z: THREE.MathUtils.radToDeg(modelContainer.rotation.z)
+				},
+				scale: modelContainer.scale.x
+			};
+		},
+		loadModel: (url) => {
+			loader.load(url, (gltf) => {
+				modelContainer.remove(currentModel);
+				currentModel = gltf.scene;
+				// Auto-scale to fit roughly
+				const box = new THREE.Box3().setFromObject(currentModel);
+				const size = box.getSize(new THREE.Vector3());
+				const maxDim = Math.max(size.x, size.y, size.z);
+				const scaleFactor = 3 / maxDim;
+				currentModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+				
+				// Center the model in the container
+				const center = box.getCenter(new THREE.Vector3());
+				currentModel.position.sub(center.multiplyScalar(scaleFactor));
+				
+				modelContainer.add(currentModel);
+			});
+		}
+	};
 }
 
 function createGridRoom(width, height, depth) {

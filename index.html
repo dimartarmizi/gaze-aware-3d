@@ -10,7 +10,7 @@
 			margin: 0;
 			overflow: hidden;
 			background: #000;
-			font-family: 'Inter', sans-serif;
+			font-family: 'Inter', system-ui, -apple-system, sans-serif;
 		}
 
 		#canvas-container {
@@ -25,18 +25,21 @@
 			color: white;
 			pointer-events: none;
 			text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+			transition: opacity 0.3s;
 		}
 
 		#webcam-container {
 			position: absolute;
 			bottom: 20px;
 			right: 20px;
-			width: 240px;
-			height: 180px;
+			width: 200px;
+			height: 150px;
 			border-radius: 12px;
-			border: 2px solid rgba(255, 255, 255, 0.2);
+			border: 1px solid rgba(255, 255, 255, 0.2);
 			overflow: hidden;
-			background: #111;
+			background: rgba(0, 0, 0, 0.5);
+			backdrop-filter: blur(10px);
+			transition: opacity 0.3s;
 		}
 
 		#webcam-view,
@@ -48,19 +51,291 @@
 			height: 100%;
 			transform: scaleX(-1);
 		}
+
+		/* UI Controls */
+		.menu-buttons {
+			position: absolute;
+			top: 20px;
+			right: 20px;
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+
+		.glass-button {
+			background: rgba(255, 255, 255, 0.1);
+			backdrop-filter: blur(10px);
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			color: white;
+			padding: 10px 15px;
+			border-radius: 8px;
+			cursor: pointer;
+			font-size: 14px;
+			transition: all 0.2s;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 8px;
+		}
+
+		.glass-button:hover {
+			background: rgba(255, 255, 255, 0.2);
+		}
+
+		.glass-panel {
+			position: absolute;
+			top: 20px;
+			right: 80px;
+			width: 280px;
+			background: rgba(15, 15, 15, 0.7);
+			backdrop-filter: blur(15px);
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			border-radius: 16px;
+			padding: 20px;
+			color: white;
+			display: none;
+			box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+			z-index: 100;
+		}
+
+		.glass-panel.active {
+			display: block;
+			animation: fadeIn 0.3s ease;
+		}
+
+		@keyframes fadeIn {
+			from { opacity: 0; transform: translateX(10px); }
+			to { opacity: 1; transform: translateX(0); }
+		}
+
+		.panel-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-bottom: 15px;
+			border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+			padding-bottom: 10px;
+		}
+
+		.panel-header h3 {
+			margin: 0;
+			font-size: 18px;
+		}
+
+		.close-panel {
+			cursor: pointer;
+			opacity: 0.7;
+		}
+
+		.setting-group {
+			margin-bottom: 15px;
+		}
+
+		.setting-group label {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			font-size: 13px;
+			margin-bottom: 8px;
+			color: rgba(255, 255, 255, 0.9);
+		}
+
+		.val-container {
+			display: flex;
+			align-items: center;
+			gap: 4px;
+			color: #00ff88;
+			font-weight: 500;
+		}
+
+		.val-display {
+			font-family: 'JetBrains Mono', monospace;
+			background: rgba(255, 255, 255, 0.1);
+			padding: 2px 8px;
+			border-radius: 4px;
+			font-size: 11px;
+			min-width: 30px;
+			text-align: center;
+			color: white;
+		}
+
+		.setting-group input[type="range"] {
+			width: 100%;
+			accent-color: #00ff88;
+		}
+
+		.setting-group select, .setting-group input[type="file"] {
+			width: 100%;
+			background: rgba(255, 255, 255, 0.1);
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			color: white;
+			padding: 5px;
+			border-radius: 4px;
+		}
+
+		.checkbox-group {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			margin-bottom: 10px;
+		}
+
+		.hidden {
+			display: none;
+		}
 	</style>
 </head>
 
 <body>
 	<div id="canvas-container"></div>
+	
 	<div id="ui-overlay">
-		<h1>Gaze-Aware 3D</h1>
+		<h1 id="app-title">Gaze-Aware 3D</h1>
 		<p id="status">Initializing camera...</p>
 	</div>
+
 	<div id="webcam-container">
 		<video id="webcam-view" autoplay playsinline></video>
 		<canvas id="feedback-canvas"></canvas>
 	</div>
+
+	<div class="menu-buttons">
+		<button class="glass-button" id="btn-app-settings" title="Pengaturan Aplikasi">⚙️</button>
+		<button class="glass-button" id="btn-model-settings" title="Pengaturan Model">📦</button>
+		<button class="glass-button" id="btn-help" title="Bantuan">❓</button>
+	</div>
+
+	<!-- App Settings Panel -->
+	<div class="glass-panel" id="panel-app-settings">
+		<div class="panel-header">
+			<h3>Pengaturan Aplikasi</h3>
+			<span class="close-panel" onclick="closeAllPanels()">&times;</span>
+		</div>
+		<div class="setting-group">
+			<label>Latar Belakang</label>
+			<select id="setting-bg">
+				<option value="dark">Gelap</option>
+				<option value="light">Terang</option>
+				<option value="grid">Grid Room</option>
+			</select>
+		</div>
+		<div class="setting-group">
+			<label>
+				<span>Jarak POV (Z-Depth)</span>
+				<span class="val-container">
+					<span class="val-display" id="val-pov">15</span>
+				</span>
+			</label>
+			<input type="range" id="setting-pov" min="5" max="30" value="15">
+		</div>
+		<div class="checkbox-group">
+			<input type="checkbox" id="setting-show-title" checked>
+			<label for="setting-show-title">Tampilkan Judul</label>
+		</div>
+		<div class="checkbox-group">
+			<input type="checkbox" id="setting-show-webcam" checked>
+			<label for="setting-show-webcam">Tampilkan Preview Kamera</label>
+		</div>
+		<button class="glass-button" id="btn-reset-app" style="width: 100%; margin-top: 10px;">
+			🔄 Reset Default
+		</button>
+	</div>
+
+	<!-- Model Settings Panel -->
+	<div class="glass-panel" id="panel-model-settings">
+		<div class="panel-header">
+			<h3>Pengaturan Model 3D</h3>
+			<span class="close-panel" onclick="closeAllPanels()">&times;</span>
+		</div>
+		<div class="setting-group">
+			<label>Muat Model (GLB/GLTF)</label>
+			<input type="file" id="setting-model-file" accept=".glb,.gltf">
+		</div>
+		<div class="setting-group">
+			<label>
+				<span>Posisi X</span>
+				<span class="val-container">
+					<span class="val-display" id="val-model-x">0</span>
+				</span>
+			</label>
+			<input type="range" id="setting-model-x" min="-10" max="10" step="0.1" value="0">
+		</div>
+		<div class="setting-group">
+			<label>
+				<span>Posisi Y</span>
+				<span class="val-container">
+					<span class="val-display" id="val-model-y">0</span>
+				</span>
+			</label>
+			<input type="range" id="setting-model-y" min="-10" max="10" step="0.1" value="0">
+		</div>
+		<div class="setting-group">
+			<label>
+				<span>Jarak (Z)</span>
+				<span class="val-container">
+					<span class="val-display" id="val-model-z">-7.5</span>
+				</span>
+			</label>
+			<input type="range" id="setting-model-z" min="-30" max="0" step="0.1" value="-7.5">
+		</div>
+		<div class="setting-group">
+			<label>
+				<span>Rotasi X</span>
+				<span class="val-container">
+					<span class="val-display" id="val-model-rot-x">0</span>°
+				</span>
+			</label>
+			<input type="range" id="setting-model-rot-x" min="-180" max="180" step="1" value="0">
+		</div>
+		<div class="setting-group">
+			<label>
+				<span>Rotasi Y</span>
+				<span class="val-container">
+					<span class="val-display" id="val-model-rot-y">0</span>°
+				</span>
+			</label>
+			<input type="range" id="setting-model-rot-y" min="-180" max="180" step="1" value="0">
+		</div>
+		<div class="setting-group">
+			<label>
+				<span>Skala</span>
+				<span class="val-container">
+					<span class="val-display" id="val-model-scale">1.0</span>x
+				</span>
+			</label>
+			<input type="range" id="setting-model-scale" min="0.1" max="10" step="0.1" value="1">
+		</div>
+		<button class="glass-button" id="btn-reset-model" style="width: 100%; margin-top: 10px; background: rgba(255, 50, 50, 0.2);">
+			🔄 Reset Transformasi
+		</button>
+		<div style="font-size: 11px; opacity: 0.6; margin-top: 10px;">
+			💡 Tips: Klik & Tarik pada layar untuk rotasi (seperti Sketchfab). Klik kanan untuk geser. Scroll untuk zoom.
+		</div>
+	</div>
+
+	<!-- Help Panel -->
+	<div class="glass-panel" id="panel-help">
+		<div class="panel-header">
+			<h3>Bantuan</h3>
+			<span class="close-panel" onclick="closeAllPanels()">&times;</span>
+		</div>
+		<div style="font-size: 14px; line-height: 1.6;">
+			<p>Aplikasi ini menggunakan kamera untuk mendeteksi posisi mata dan wajah Anda.</p>
+			<p><strong>Cara Penggunaan:</strong></p>
+			<ol>
+				<li>Izinkan akses kamera.</li>
+				<li>Posisikan wajah di depan layar.</li>
+				<li>Gerakkan kepala Anda untuk melihat efek perspektif 3D yang nyata.</li>
+			</ol>
+			<p>Gunakan menu di samping untuk mengubah pengaturan visual.</p>
+		</div>
+	</div>
+
+	<script>
+		function closeAllPanels() {
+			document.querySelectorAll('.glass-panel').forEach(p => p.classList.remove('active'));
+		}
+	</script>
 	<script type="module" src="/src/main.js"></script>
 </body>
 
