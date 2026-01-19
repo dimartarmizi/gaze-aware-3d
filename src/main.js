@@ -10,6 +10,7 @@ async function main() {
 	const btnApp = document.getElementById('btn-app-settings');
 	const btnModel = document.getElementById('btn-model-settings');
 	const btnHelp = document.getElementById('btn-help');
+	const btnFullscreen = document.getElementById('btn-fullscreen');
 	const btnResetModel = document.getElementById('btn-reset-model');
 	const btnResetApp = document.getElementById('btn-reset-app');
 	
@@ -76,6 +77,27 @@ async function main() {
 		btnApp.onclick = () => togglePanel(panelApp);
 		btnModel.onclick = () => togglePanel(panelModel);
 		btnHelp.onclick = () => togglePanel(panelHelp);
+
+		btnFullscreen.onclick = () => {
+			if (!document.fullscreenElement) {
+				document.documentElement.requestFullscreen().catch(err => {
+					console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+				});
+				btnFullscreen.textContent = '✖️';
+			} else {
+				document.exitFullscreen();
+				btnFullscreen.textContent = '🖥️';
+			}
+		};
+
+		// Update button icon when exiting fullscreen via ESC key
+		document.addEventListener('fullscreenchange', () => {
+			if (!document.fullscreenElement) {
+				btnFullscreen.textContent = '🖥️';
+			} else {
+				btnFullscreen.textContent = '✖️';
+			}
+		});
 
 		settingBg.onchange = (e) => updateBackground(e.target.value);
 		settingPov.oninput = (e) => {
