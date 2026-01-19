@@ -50,11 +50,24 @@ export function initScene() {
 	const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
 	scene.add(hemiLight);
 
+	const updateGrid = () => {
+		const aspect = window.innerWidth / window.innerHeight;
+		const width = 10;
+		const height = width / aspect;
+		
+		const isVisible = gridRoom ? gridRoom.visible : true;
+		if (gridRoom) scene.remove(gridRoom);
+		gridRoom = createGridRoom(width, height, depth);
+		gridRoom.visible = isVisible;
+		scene.add(gridRoom);
+	};
+
 	window.addEventListener('resize', () => {
 		const aspect = window.innerWidth / window.innerHeight;
 		camera.aspect = aspect;
 		camera.updateProjectionMatrix();
 		renderer.setSize(window.innerWidth, window.innerHeight);
+		updateGrid();
 	});
 
 	const loader = new GLTFLoader();
