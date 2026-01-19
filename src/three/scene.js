@@ -7,9 +7,15 @@ export function initScene() {
 
 	const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-	const renderer = new THREE.WebGLRenderer({ antialias: true });
+	const renderer = new THREE.WebGLRenderer({ 
+		antialias: true,
+		logarithmicDepthBuffer: false
+	});
 	renderer.setSize(window.innerWidth, window.innerHeight);
-	renderer.setPixelRatio(window.devicePixelRatio);
+	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+	renderer.outputColorSpace = THREE.SRGBColorSpace;
+	renderer.toneMapping = THREE.ACESFilmicToneMapping;
+	renderer.toneMappingExposure = 1.0;
 	document.getElementById('canvas-container').appendChild(renderer.domElement);
 
 	const aspect = window.innerWidth / window.innerHeight;
@@ -20,27 +26,29 @@ export function initScene() {
 	let gridRoom = createGridRoom(width, height, depth);
 	scene.add(gridRoom);
 
-	// Container for the model to allow Sketchfab-like rotation/panning
 	const modelContainer = new THREE.Group();
 	scene.add(modelContainer);
 
 	const sphereGeometry = new THREE.SphereGeometry(1.5, 32, 32);
 	const sphereMaterial = new THREE.MeshStandardMaterial({
 		color: 0x00ff88,
-		metalness: 0.8,
-		roughness: 0.2,
-		emissive: 0x003311
+		metalness: 0.5,
+		roughness: 0.2
 	});
 	let currentModel = new THREE.Mesh(sphereGeometry, sphereMaterial);
 	modelContainer.add(currentModel);
-	modelContainer.position.set(0, 0, -depth / 2);
+	modelContainer.position.set(0, 0, 0);
 
-	const pointLight = new THREE.PointLight(0x00ffff, 1, 50);
-	pointLight.position.set(0, 5, -5);
-	scene.add(pointLight);
+	const mainLight = new THREE.DirectionalLight(0xffffff, 3);
+	mainLight.position.set(5, 10, 7.5);
+	scene.add(mainLight);
 
-	const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-	scene.add(ambientLight);
+	const fillLight = new THREE.PointLight(0x00ffff, 1, 50);
+	fillLight.position.set(-5, 5, -5);
+	scene.add(fillLight);
+
+	const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
+	scene.add(hemiLight);
 
 	window.addEventListener('resize', () => {
 		const aspect = window.innerWidth / window.innerHeight;
@@ -50,11 +58,19 @@ export function initScene() {
 	});
 
 	const loader = new GLTFLoader();
+	let mixer = null;
+	const clock = new THREE.Clock();
 
 	return {
 		scene,
 		camera,
 		renderer,
+		update: () => {
+			if (mixer) {
+				const delta = clock.getDelta();
+				mixer.update(delta);
+			}
+		},
 		updateBackground: (theme) => {
 			if (theme === 'dark') {
 				scene.background = new THREE.Color(0x050505);
@@ -73,9 +89,14 @@ export function initScene() {
 			gridRoom = createGridRoom(width, height, depth);
 			scene.add(gridRoom);
 		},
+		updateLighting: (intensity) => {
+			mainLight.intensity = intensity * 2;
+			hemiLight.intensity = intensity;
+		},
 		updateModelTransform: (transform) => {
 			if (transform.position) {
-				modelContainer.position.set(transform.position.x, transform.position.y, transform.position.z);
+				const z = Math.min(0, transform.position.z);
+				modelContainer.position.set(transform.position.x, transform.position.y, z);
 			}
 			if (transform.rotation) {
 				modelContainer.rotation.set(
@@ -99,23 +120,44 @@ export function initScene() {
 				scale: modelContainer.scale.x
 			};
 		},
-		loadModel: (url) => {
+		loadModel: (url, onComplete) => {
 			loader.load(url, (gltf) => {
 				modelContainer.remove(currentModel);
 				currentModel = gltf.scene;
-				// Auto-scale to fit roughly
+				
+				currentModel.traverse((child) => {
+					if (child.isMesh) {
+						child.material.alphaTest = 0.5;
+						child.material.depthWrite = true;
+						child.material.needsUpdate = true;
+						child.castShadow = true;
+						child.receiveShadow = true;
+					}
+				});
+
+				mixer = new THREE.AnimationMixer(currentModel);
+				const animations = gltf.animations;
+
 				const box = new THREE.Box3().setFromObject(currentModel);
 				const size = box.getSize(new THREE.Vector3());
 				const maxDim = Math.max(size.x, size.y, size.z);
 				const scaleFactor = 3 / maxDim;
 				currentModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
 				
-				// Center the model in the container
 				const center = box.getCenter(new THREE.Vector3());
 				currentModel.position.sub(center.multiplyScalar(scaleFactor));
 				
 				modelContainer.add(currentModel);
+
+				if (onComplete) onComplete(animations);
 			});
+		},
+		setAnimation: (clip) => {
+			if (!mixer) return;
+			mixer.stopAllAction();
+			if (clip) {
+				mixer.clipAction(clip).play();
+			}
 		}
 	};
 }

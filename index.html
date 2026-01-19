@@ -205,7 +205,6 @@
 		<button class="glass-button" id="btn-help" title="Bantuan">❓</button>
 	</div>
 
-	<!-- App Settings Panel -->
 	<div class="glass-panel" id="panel-app-settings">
 		<div class="panel-header">
 			<h3>Pengaturan Aplikasi</h3>
@@ -241,7 +240,6 @@
 		</button>
 	</div>
 
-	<!-- Model Settings Panel -->
 	<div class="glass-panel" id="panel-model-settings">
 		<div class="panel-header">
 			<h3>Pengaturan Model 3D</h3>
@@ -250,6 +248,21 @@
 		<div class="setting-group">
 			<label>Muat Model (GLB/GLTF)</label>
 			<input type="file" id="setting-model-file" accept=".glb,.gltf">
+		</div>
+		<div class="setting-group" id="group-model-anim" style="display: none;">
+			<label>Animasi Model</label>
+			<select id="setting-model-anim">
+				<option value="">Tanpa Animasi</option>
+			</select>
+		</div>
+		<div class="setting-group">
+			<label>
+				<span>Kecerahan (Cahaya)</span>
+				<span class="val-container">
+					<span class="val-display" id="val-model-light">1.5</span>
+				</span>
+			</label>
+			<input type="range" id="setting-model-light" min="0.1" max="5" step="0.1" value="1.5">
 		</div>
 		<div class="setting-group">
 			<label>
@@ -313,7 +326,6 @@
 		</div>
 	</div>
 
-	<!-- Help Panel -->
 	<div class="glass-panel" id="panel-help">
 		<div class="panel-header">
 			<h3>Bantuan</h3>

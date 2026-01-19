@@ -7,7 +7,6 @@ async function main() {
 	const videoEl = document.getElementById('webcam-view');
 	const canvasEl = document.getElementById('feedback-canvas');
 
-	// UI Elements
 	const btnApp = document.getElementById('btn-app-settings');
 	const btnModel = document.getElementById('btn-model-settings');
 	const btnHelp = document.getElementById('btn-help');
@@ -30,29 +29,33 @@ async function main() {
 	const settingModelRotX = document.getElementById('setting-model-rot-x');
 	const settingModelRotY = document.getElementById('setting-model-rot-y');
 	const settingModelScale = document.getElementById('setting-model-scale');
+	const settingModelLight = document.getElementById('setting-model-light');
+	const settingModelAnim = document.getElementById('setting-model-anim');
+	const groupModelAnim = document.getElementById('group-model-anim');
 
-	// Store Initial Defaults for Reset
 	const defaults = {
 		x: 0,
 		y: 0,
-		z: -7.5,
+		z: 0,
 		rotX: 0,
 		rotY: 0,
-		scale: 1
+		scale: 1,
+		light: 1.5
 	};
 
 	try {
 		const sceneData = initScene();
-		const { scene, camera, renderer, updateBackground, updatePOV, updateModelTransform, getModelTransform, loadModel } = sceneData;
+		const { scene, camera, renderer, update, updateBackground, updatePOV, updateLighting, updateModelTransform, getModelTransform, loadModel, setAnimation } = sceneData;
 
 		const faceTracker = new FaceTracker(videoEl, canvasEl);
 		await faceTracker.start();
 
 		const cameraController = new CameraController(camera);
 
+		let currentAnimations = [];
+
 		statusEl.textContent = 'Tracking active. Move your head to change perspective.';
 
-		// UI Logic
 		const togglePanel = (panel) => {
 			const isActive = panel.classList.contains('active');
 			document.querySelectorAll('.glass-panel').forEach(p => p.classList.remove('active'));
@@ -67,13 +70,13 @@ async function main() {
 			document.getElementById('val-model-rot-x').textContent = settingModelRotX.value;
 			document.getElementById('val-model-rot-y').textContent = settingModelRotY.value;
 			document.getElementById('val-model-scale').textContent = parseFloat(settingModelScale.value).toFixed(1);
+			document.getElementById('val-model-light').textContent = parseFloat(settingModelLight.value).toFixed(1);
 		};
 
 		btnApp.onclick = () => togglePanel(panelApp);
 		btnModel.onclick = () => togglePanel(panelModel);
 		btnHelp.onclick = () => togglePanel(panelHelp);
 
-		// App Settings events
 		settingBg.onchange = (e) => updateBackground(e.target.value);
 		settingPov.oninput = (e) => {
 			updatePOV(parseInt(e.target.value));
@@ -99,7 +102,6 @@ async function main() {
 			updateValDisplays();
 		};
 
-		// Model Settings synchronization functions
 		const updateSlidersFromModel = () => {
 			const t = getModelTransform();
 			settingModelX.value = t.position.x;
@@ -124,6 +126,11 @@ async function main() {
 			el.oninput = updateModelFromSliders;
 		});
 
+		settingModelLight.oninput = (e) => {
+			updateLighting(parseFloat(e.target.value));
+			updateValDisplays();
+		};
+
 		btnResetModel.onclick = () => {
 			settingModelX.value = defaults.x;
 			settingModelY.value = defaults.y;
@@ -131,20 +138,45 @@ async function main() {
 			settingModelRotX.value = defaults.rotX;
 			settingModelRotY.value = defaults.rotY;
 			settingModelScale.value = defaults.scale;
+			settingModelLight.value = defaults.light;
 			updateModelFromSliders();
+			updateLighting(defaults.light);
 		};
 		updateValDisplays();
 		settingModelFile.onchange = (e) => {
 			const file = e.target.files[0];
 			if (file) {
 				const url = URL.createObjectURL(file);
-				loadModel(url);
+				loadModel(url, (animations) => {
+					currentAnimations = animations;
+					settingModelAnim.innerHTML = '<option value="">Tanpa Animasi</option>';
+					
+					if (animations && animations.length > 0) {
+						groupModelAnim.style.display = 'block';
+						animations.forEach((anim, index) => {
+							const option = document.createElement('option');
+							option.value = index;
+							option.textContent = anim.name || `Animation ${index + 1}`;
+							settingModelAnim.appendChild(option);
+						});
+					} else {
+						groupModelAnim.style.display = 'none';
+					}
+				});
 			}
 		};
 
-		// Sketchfab-like interaction
+		settingModelAnim.onchange = (e) => {
+			const index = e.target.value;
+			if (index === "") {
+				setAnimation(null);
+			} else {
+				setAnimation(currentAnimations[parseInt(index)]);
+			}
+		};
+
 		let isDragging = false;
-		let dragMode = 'rotate'; // 'rotate' or 'pan'
+		let dragMode = 'rotate';
 		let lastMouseX, lastMouseY;
 
 		renderer.domElement.addEventListener('mousedown', (e) => {
@@ -178,6 +210,8 @@ async function main() {
 				t.position.y -= deltaY * 0.02;
 			}
 
+			t.position.z = Math.min(0, t.position.z);
+
 			updateModelTransform(t);
 			updateSlidersFromModel();
 		});
@@ -186,12 +220,15 @@ async function main() {
 			e.preventDefault();
 			const t = getModelTransform();
 			t.position.z -= e.deltaY * 0.01;
+			t.position.z = Math.min(0, t.position.z);
 			updateModelTransform(t);
 			updateSlidersFromModel();
 		}, { passive: false });
 
 		function animate() {
 			requestAnimationFrame(animate);
+
+			if (update) update();
 
 			const headPose = faceTracker.getHeadPose();
 			if (headPose) {
